@@ -1,0 +1,184 @@
+inventory_system/
+├── app/
+│   ├── main.py                  # Entry point
+│   ├── models.py                # All DB models
+│   ├── schemas.py               # All Pydantic schemas
+│   ├── crud.py                  # DB logic (can split later if needed)
+│   ├── settings.py              # Environment config using BaseSettings
+│   ├── database.py              # DB engine/session
+│   ├── streamlit_app.py         # For visualization (optional)
+│   ├── auth/                    # 🔐 Authentication logic
+│   │   ├── auth_bearer.py       # JWTBearer dependency
+│   │   ├── auth_handler.py      # JWT encode/decode + hashing
+│   │   └── routes_auth.py       # /auth/signup, /auth/login endpoints
+│   └── routers/
+│       ├── inventory.py         # Inventory CRUD
+│       └── users.py             # (🔒 Admin-only user routes, optional)
+├── requirements.txt             # Dependencies
+└── .env                         # Secrets (DB_USER, DB_PASSWORD, etc.)
+
+-------------------------------------
+Concept : 
+
+⚙️ What is an Inventory Management System?
+An Inventory Management System tracks:
+What items/products are in stock
+How much quantity is available
+When stock is added or removed
+Who is making the changes (optional, via authentication)
+Purchase/Sales records (optional extension)
+
+--------------------------------------
+Database schemas: 
+🧱 Entities in the Inventory Management System (Core + Optional)
+
+🔹 1. Item  
+Main inventory record
+
+Field           Type        Description  
+id              Integer     Primary Key  
+name            String      Name of the item  
+description     Text        Optional details  
+quantity        Integer     Quantity in stock  
+price           Float       Price per unit  
+category_id     ForeignKey  Linked to Category  
+supplier_id     ForeignKey  Linked to Supplier  
+created_at      DateTime    Auto timestamp  
+updated_at      DateTime    Auto timestamp  
+
+🔹 2. Category  
+To group items
+
+Field           Type        Description  
+id              Integer     Primary Key  
+name            String      Category name  
+description     Text        Optional  
+
+🔹 3. Supplier  
+Who supplies the items
+
+Field           Type        Description  
+id              Integer     Primary Key  
+name            String      Supplier name  
+contact_info    String      Phone/email  
+address         Text        Address  
+
+🔹 4. User (Optional but recommended)  
+For authentication & user-based logging
+
+Field           Type        Description  
+id              Integer     Primary Key  
+username        String      Unique login name  
+hashed_password String      Secure password  
+role            String      admin / viewer  
+
+🔹 5. StockTransaction (Optional for logs/audit)  
+To track every change in stock
+
+Field           Type        Description  
+id              Integer     Primary Key  
+item_id         ForeignKey  Linked to Item  
+change_type     String      add, remove, adjust  
+quantity        Integer     Quantity changed  
+user_id         ForeignKey  Who made the change  
+timestamp       DateTime    When it happened  
+notes           Text        Optional remark  
+
+🧩 Total Entities (Tables)
+
+Table Name         Required?   Purpose  
+items              ✅          Store inventory items  
+categories         ✅          Group similar items  
+suppliers          ✅          Manage supplier info  
+users              🔁 optional For login/auth (JWT/token)  
+stock_transactions 🔁 optional History of changes (audit/logs)  
+
+✅ Minimum Required: items, categories, suppliers  
+➕ Highly Recommended: users, stock_transactions (for robust system)  
+
+-----------------------------------
+implementation steps visualisation : https://i.postimg.cc/Fsz5kVfR/Step-File-Purpose-visual-selection.png
+
+------------------------------------
+
+ER diagram : 
++----------------+         +----------------+         
+|   Category     |         |   Supplier     |
++----------------+         +----------------+
+| id (PK)        |         | id (PK)        |
+| name           |         | name           |
+| description    |         | contact_info   |
++----------------+         | address        |
+                           +----------------+
+                                  |
+                                  |
+                                  |
+                                  v
+                          +----------------+
+                          |     Item       |
+                          +----------------+
+                          | id (PK)        |
+                          | name           |
+                          | description    |
+                          | quantity       |
+                          | price          |
+                          | category_id(FK)+<----+
+                          | supplier_id(FK)+<----+
+                          | created_at     |
+                          | updated_at     |
+                          +----------------+
+                                  |
+                                  |
+                    +-------------+--------------+
+                    |                            |
+                    v                            v
+         +------------------+         +---------------------+
+         | StockTransaction |         |       User          |
+         +------------------+         +---------------------+
+         | id (PK)          |         | id (PK)             |
+         | item_id (FK)     +-------->+ username            |
+         | change_type      |         | hashed_password     |
+         | quantity         |         | role (admin/viewer) |
+         | user_id (FK)     +-------->+                     |
+         | timestamp        |         +---------------------+
+         | notes            |
+         +------------------+
+
+-------------------------------------
+
+routes : 
+
+ENTITY     | OPERATION | ROUTE                                 | DESCRIPTION
+-----------|-----------|----------------------------------------|------------------------------
+Category   | Create    | /inventory/categories/ (POST)          | Add a new category
+           | Get All   | /inventory/categories/ (GET)           | List categories
+           | Get One   | /inventory/categories/{id} (GET)       | Get specific category
+
+Supplier   | Create    | /inventory/suppliers/ (POST)           | Add a new supplier
+           | Get All   | /inventory/suppliers/ (GET)            | List suppliers
+           | Get One   | /inventory/suppliers/{id} (GET)        | Get specific supplier
+
+Item       | Create    | /inventory/items/ (POST)               | Add a new item
+           | Get All   | /inventory/items/ (GET)                | List all items
+           | Get One   | /inventory/items/{id} (GET)            | Get specific item
+           | Update    | /inventory/items/{id} (PUT)            | Update item details
+           | Delete    | /inventory/items/{id} (DELETE)         | Delete an item from stock
+
+--------------------------------------------------------
+1.Settings.py implementation 
+2.functon async implementation in crud and inventory 
+(used libraries : asyncpg , aiosqlite)
+--------------------------------------------------------
+
+JWT USER Auth process flow :
+
+[ Signup ] → [ Login ] → [ Get Token ]
+                      ↓
+             [ Store Token on Frontend ]
+                      ↓
+[ Use Token in all API calls via Bearer token ]
+                      ↓
+[ Backend validates token & authorizes access ]
+
+----------------------------------------------------------------
+
